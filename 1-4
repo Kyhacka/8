@@ -1,0 +1,240 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+namespace МенюКафе
+{
+    [Serializable]
+    public class Блюдо
+    {
+        public int Id { get; set; }
+        public string Название { get; set; }
+        public string Категория { get; set; }
+        public decimal Цена { get; set; }
+        public int Калории { get; set; }
+        public bool Вегетарианское { get; set; }
+
+        public Блюдо() { }
+
+        public Блюдо(int id, string название, string категория, decimal цена, int калории, bool вегетарианское)
+        {
+            Id = id;
+            Название = название;
+            Категория = категория;
+            Цена = цена;
+            Калории = калории;
+            Вегетарианское = вегетарианское;
+        }
+
+        public override string ToString()
+        {
+            return $"{Id}: {Название} ({Категория}) - {Цена}₽, {Калории} ккал, " +
+                   $"{(Вегетарианское ? "Вегетарианское" : "Не вегетарианское")}";
+        }
+    }
+
+    public class Меню
+    {
+        private List<Блюдо> блюда;
+        private readonly string путьФайла;
+
+        public Меню(string путь)
+        {
+            путьФайла = путь;
+            блюда = new List<Блюдо>();
+        }
+
+        public void Загрузить()
+        {
+            try
+            {
+                if (File.Exists(путьФайла))
+                {
+                    string json = File.ReadAllText(путьФайла);
+                    блюда = JsonSerializer.Deserialize<List<Блюдо>>(json);
+                    Console.WriteLine("Меню загружено успешно.");
+                }
+                else
+                {
+                    Console.WriteLine("Файл меню не найден. Создано новое меню.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка загрузки: {ex.Message}");
+                блюда = new List<Блюдо>();
+            }
+        }
+
+        public void Сохранить()
+        {
+            try
+            {
+                string json = JsonSerializer.Serialize(блюда);
+                File.WriteAllText(путьФайла, json);
+                Console.WriteLine("Меню сохранено успешно.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка сохранения: {ex.Message}");
+            }
+        }
+
+        public void ПоказатьВсе()
+        {
+            if (блюда.Count == 0)
+            {
+                Console.WriteLine("Меню пустое.");
+                return;
+            }
+
+            Console.WriteLine("\n=== ВСЕ БЛЮДА ===");
+            foreach (var блюдо in блюда)
+            {
+                Console.WriteLine(блюдо);
+            }
+        }
+
+        public void Добавить(Блюдо новоеБлюдо)
+        {
+            if (блюда.Exists(b => b.Id == новоеБлюдо.Id))
+            {
+                Console.WriteLine($"Блюдо с ID {новоеБлюдо.Id} уже существует.");
+                return;
+            }
+
+            блюда.Add(новоеБлюдо);
+            Console.WriteLine("Блюдо успешно добавлено.");
+        }
+
+        public void Удалить(int id)
+        {
+            var блюдо = блюда.Find(b => b.Id == id);
+            if (блюдо != null)
+            {
+                блюда.Remove(блюдо);
+                Console.WriteLine($"Блюдо с ID {id} удалено успешно.");
+            }
+            else
+            {
+                Console.WriteLine($"Блюдо с ID {id} не найдено.");
+            }
+        }
+    }
+
+    class Программа
+    {
+        static void Main(string[] args)
+        {
+            Меню меню = new Меню("menu.json");
+            меню.Загрузить();
+
+            bool выход = false;
+            while (!выход)
+            {
+                Console.WriteLine("\n=== УПРАВЛЕНИЕ МЕНЮ ===");
+                Console.WriteLine("1. Показать все блюда");
+                Console.WriteLine("2. Добавить блюдо");
+                Console.WriteLine("3. Удалить блюдо");
+                Console.WriteLine("4. Сохранить меню");
+                Console.WriteLine("5. Выход");
+                Console.Write("Выберите действие: ");
+
+                string выбор = Console.ReadLine();
+
+                switch (выбор)
+                {
+                    case "1":
+                        меню.ПоказатьВсе();
+                        break;
+                    case "2":
+                        ДобавитьБлюдо(меню);
+                        break;
+                    case "3":
+                        УдалитьБлюдо(меню);
+                        break;
+                    case "4":
+                        меню.Сохранить();
+                        break;
+                    case "5":
+                        выход = true;
+                        меню.Сохранить();
+                        Console.WriteLine("До свидания!");
+                        break;
+                    default:
+                        Console.WriteLine("Неверный выбор!");
+                        break;
+                }
+            }
+        }
+
+        static void ДобавитьБлюдо(Меню меню)
+        {
+            Console.WriteLine("\n=== ДОБАВЛЕНИЕ БЛЮДА ===");
+
+            int id = ВвестиЧисло("Введите ID: ");
+            string название = ВвестиСтроку("Введите название: ");
+            string категория = ВвестиСтроку("Введите категорию: ");
+            decimal цена = ВвестиДесятичное("Введите цену: ");
+            int калории = ВвестиЧисло("Введите калории: ");
+            bool вегетарианское = ВвестиДаНет("Вегетарианское (д/н)? ");
+
+            Блюдо новоеБлюдо = new Блюдо(id, название, категория, цена, калории, вегетарианское);
+            меню.Добавить(новоеБлюдо);
+        }
+
+        static void УдалитьБлюдо(Меню меню)
+        {
+            Console.Write("\nВведите ID блюда для удаления: ");
+            if (int.TryParse(Console.ReadLine(), out int id))
+            {
+                меню.Удалить(id);
+            }
+            else
+            {
+                Console.WriteLine("Неверный формат ID.");
+            }
+        }
+
+        static int ВвестиЧисло(string подсказка)
+        {
+            while (true)
+            {
+                Console.Write(подсказка);
+                if (int.TryParse(Console.ReadLine(), out int число))
+                    return число;
+                Console.WriteLine("Ошибка! Введите целое число.");
+            }
+        }
+
+        static decimal ВвестиДесятичное(string подсказка)
+        {
+            while (true)
+            {
+                Console.Write(подсказка);
+                if (decimal.TryParse(Console.ReadLine(), out decimal число))
+                    return число;
+                Console.WriteLine("Ошибка! Введите число (например 125.50).");
+            }
+        }
+
+        static string ВвестиСтроку(string подсказка)
+        {
+            Console.Write(подсказка);
+            return Console.ReadLine().Trim();
+        }
+
+        static bool ВвестиДаНет(string подсказка)
+        {
+            while (true)
+            {
+                Console.Write(подсказка);
+                string input = Console.ReadLine().ToLower();
+                if (input == "д" || input == "да") return true;
+                if (input == "н" || input == "нет") return false;
+                Console.WriteLine("Введите 'д'/'да' или 'н'/'нет'");
+            }
+        }
+    }
+}
