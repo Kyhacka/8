@@ -1,240 +1,355 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
+using System.Linq;
 
-namespace МенюКафе
+public class MenuItem
 {
-    [Serializable]
-    public class Блюдо
+    // Свойства
+    public int Id { get; set; }                 // Уникальный идентификатор
+    public string Name { get; set; }            // Название блюда
+    public string Category { get; set; }        // Категория (закуска, основное, десерт и т.д.)
+    public decimal Price { get; set; }          // Цена
+    public double Weight { get; set; }          // Вес в граммах
+    public bool IsVegetarian { get; set; }      // Вегетарианское ли блюдо
+    public TimeSpan CookingTime { get; set; }   // Время приготовления
+    public int Calories { get; set; }           // Калорийность
+
+    // Конструкторы
+    public MenuItem() { }
+
+    public MenuItem(int id, string name, string category, decimal price, double weight,
+                   bool isVegetarian, TimeSpan cookingTime, int calories)
     {
-        public int Id { get; set; }
-        public string Название { get; set; }
-        public string Категория { get; set; }
-        public decimal Цена { get; set; }
-        public int Калории { get; set; }
-        public bool Вегетарианское { get; set; }
-
-        public Блюдо() { }
-
-        public Блюдо(int id, string название, string категория, decimal цена, int калории, bool вегетарианское)
-        {
-            Id = id;
-            Название = название;
-            Категория = категория;
-            Цена = цена;
-            Калории = калории;
-            Вегетарианское = вегетарианское;
-        }
-
-        public override string ToString()
-        {
-            return $"{Id}: {Название} ({Категория}) - {Цена}₽, {Калории} ккал, " +
-                   $"{(Вегетарианское ? "Вегетарианское" : "Не вегетарианское")}";
-        }
+        Id = id;
+        Name = name;
+        Category = category;
+        Price = price;
+        Weight = weight;
+        IsVegetarian = isVegetarian;
+        CookingTime = cookingTime;
+        Calories = calories;
     }
 
-    public class Меню
+    // Перегруженный метод ToString()
+    public override string ToString()
     {
-        private List<Блюдо> блюда;
-        private readonly string путьФайла;
+        return $"ID: {Id}\nНазвание: {Name}\nКатегория: {Category}\nЦена: {Price} руб.\n" +
+               $"Вес: {Weight} г\nВегетарианское: {(IsVegetarian ? "Да" : "Нет")}\n" +
+               $"Время приготовления: {CookingTime.TotalMinutes} мин.\nКалорийность: {Calories} ккал\n";
+    }
+}
+public static class CafeDatabase
+{
+    private static string filePath = "menu.dat";
+    private static List<MenuItem> menuItems = new List<MenuItem>();
 
-        public Меню(string путь)
+    // Загрузка данных из файла
+    public static void LoadDatabase()
+    {
+        try
         {
-            путьФайла = путь;
-            блюда = new List<Блюдо>();
-        }
-
-        public void Загрузить()
-        {
-            try
+            if (File.Exists(filePath))
             {
-                if (File.Exists(путьФайла))
+                using (BinaryReader reader = new BinaryReader(File.Open(filePath, FileMode.Open)))
                 {
-                    string json = File.ReadAllText(путьФайла);
-                    блюда = JsonSerializer.Deserialize<List<Блюдо>>(json);
-                    Console.WriteLine("Меню загружено успешно.");
+                    menuItems.Clear();
+                    while (reader.BaseStream.Position != reader.BaseStream.Length)
+                    {
+                        MenuItem item = new MenuItem
+                        {
+                            Id = reader.ReadInt32(),
+                            Name = reader.ReadString(),
+                            Category = reader.ReadString(),
+                            Price = reader.ReadDecimal(),
+                            Weight = reader.ReadDouble(),
+                            IsVegetarian = reader.ReadBoolean(),
+                            CookingTime = TimeSpan.FromMinutes(reader.ReadDouble()),
+                            Calories = reader.ReadInt32()
+                        };
+                        menuItems.Add(item);
+                    }
                 }
-                else
-                {
-                    Console.WriteLine("Файл меню не найден. Создано новое меню.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка загрузки: {ex.Message}");
-                блюда = new List<Блюдо>();
-            }
-        }
-
-        public void Сохранить()
-        {
-            try
-            {
-                string json = JsonSerializer.Serialize(блюда);
-                File.WriteAllText(путьФайла, json);
-                Console.WriteLine("Меню сохранено успешно.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Ошибка сохранения: {ex.Message}");
-            }
-        }
-
-        public void ПоказатьВсе()
-        {
-            if (блюда.Count == 0)
-            {
-                Console.WriteLine("Меню пустое.");
-                return;
-            }
-
-            Console.WriteLine("\n=== ВСЕ БЛЮДА ===");
-            foreach (var блюдо in блюда)
-            {
-                Console.WriteLine(блюдо);
-            }
-        }
-
-        public void Добавить(Блюдо новоеБлюдо)
-        {
-            if (блюда.Exists(b => b.Id == новоеБлюдо.Id))
-            {
-                Console.WriteLine($"Блюдо с ID {новоеБлюдо.Id} уже существует.");
-                return;
-            }
-
-            блюда.Add(новоеБлюдо);
-            Console.WriteLine("Блюдо успешно добавлено.");
-        }
-
-        public void Удалить(int id)
-        {
-            var блюдо = блюда.Find(b => b.Id == id);
-            if (блюдо != null)
-            {
-                блюда.Remove(блюдо);
-                Console.WriteLine($"Блюдо с ID {id} удалено успешно.");
+                Console.WriteLine("База данных успешно загружена.");
             }
             else
             {
-                Console.WriteLine($"Блюдо с ID {id} не найдено.");
+                Console.WriteLine("Файл базы данных не найден. Создана новая база.");
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при загрузке базы данных: {ex.Message}");
         }
     }
 
-    class Программа
+    // Сохранение данных в файл
+    public static void SaveDatabase()
     {
-        static void Main(string[] args)
+        try
         {
-            Меню меню = new Меню("menu.json");
-            меню.Загрузить();
-
-            bool выход = false;
-            while (!выход)
+            using (BinaryWriter writer = new BinaryWriter(File.Open(filePath, FileMode.Create)))
             {
-                Console.WriteLine("\n=== УПРАВЛЕНИЕ МЕНЮ ===");
-                Console.WriteLine("1. Показать все блюда");
-                Console.WriteLine("2. Добавить блюдо");
-                Console.WriteLine("3. Удалить блюдо");
-                Console.WriteLine("4. Сохранить меню");
-                Console.WriteLine("5. Выход");
-                Console.Write("Выберите действие: ");
-
-                string выбор = Console.ReadLine();
-
-                switch (выбор)
+                foreach (var item in menuItems)
                 {
-                    case "1":
-                        меню.ПоказатьВсе();
+                    writer.Write(item.Id);
+                    writer.Write(item.Name);
+                    writer.Write(item.Category);
+                    writer.Write(item.Price);
+                    writer.Write(item.Weight);
+                    writer.Write(item.IsVegetarian);
+                    writer.Write(item.CookingTime.TotalMinutes);
+                    writer.Write(item.Calories);
+                }
+            }
+            Console.WriteLine("База данных успешно сохранена.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка при сохранении базы данных: {ex.Message}");
+        }
+    }
+
+    // Просмотр всех элементов
+    public static void ViewAllItems()
+    {
+        if (menuItems.Count == 0)
+        {
+            Console.WriteLine("Меню пусто.");
+            return;
+        }
+
+        var sortedItems = from item in menuItems
+                          orderby item.Category, item.Price
+                          select item;
+
+        foreach (var item in sortedItems)
+        {
+            Console.WriteLine(item);
+            Console.WriteLine("----------------------");
+        }
+    }
+
+    // Добавление нового элемента
+    public static void AddItem(MenuItem item)
+    {
+        if (menuItems.Any(i => i.Id == item.Id))
+        {
+            Console.WriteLine("Элемент с таким ID уже существует.");
+            return;
+        }
+
+        menuItems.Add(item);
+        Console.WriteLine("Блюдо успешно добавлено в меню.");
+    }
+
+    // Удаление элемента по ID
+    public static void RemoveItem(int id)
+    {
+        var itemToRemove = menuItems.FirstOrDefault(i => i.Id == id);
+        if (itemToRemove != null)
+        {
+            menuItems.Remove(itemToRemove);
+            Console.WriteLine("Блюдо успешно удалено из меню.");
+        }
+        else
+        {
+            Console.WriteLine("Блюдо с указанным ID не найдено.");
+        }
+    }
+
+    // Поиск вегетарианских блюд
+    public static void ViewVegetarianItems()
+    {
+        var vegetarianItems = from item in menuItems
+                              where item.IsVegetarian
+                              orderby item.Price
+                              select item;
+
+        if (!vegetarianItems.Any())
+        {
+            Console.WriteLine("Вегетарианских блюд в меню нет.");
+            return;
+        }
+
+        Console.WriteLine("Вегетарианские блюда:");
+        foreach (var item in vegetarianItems)
+        {
+            Console.WriteLine(item);
+            Console.WriteLine("----------------------");
+        }
+    }
+
+    // Поиск блюд по категории
+    public static void ViewItemsByCategory(string category)
+    {
+        var categoryItems = from item in menuItems
+                            where item.Category.Equals(category, StringComparison.OrdinalIgnoreCase)
+                            orderby item.Price
+                            select item;
+
+        if (!categoryItems.Any())
+        {
+            Console.WriteLine($"Блюд в категории '{category}' не найдено.");
+            return;
+        }
+
+        Console.WriteLine($"Блюда в категории '{category}':");
+        foreach (var item in categoryItems)
+        {
+            Console.WriteLine(item);
+            Console.WriteLine("----------------------");
+        }
+    }
+
+    // Поиск блюд в ценовом диапазоне
+    public static void ViewItemsInPriceRange(decimal minPrice, decimal maxPrice)
+    {
+        var priceRangeItems = from item in menuItems
+                              where item.Price >= minPrice && item.Price <= maxPrice
+                              orderby item.Price
+                              select item;
+
+        if (!priceRangeItems.Any())
+        {
+            Console.WriteLine($"Блюд в ценовом диапазоне от {minPrice} до {maxPrice} руб. не найдено.");
+            return;
+        }
+
+        Console.WriteLine($"Блюда в ценовом диапазоне от {minPrice} до {maxPrice} руб.:");
+        foreach (var item in priceRangeItems)
+        {
+            Console.WriteLine(item);
+            Console.WriteLine("----------------------");
+        }
+    }
+}
+class Program
+{
+    static void Main(string[] args)
+    {
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        CafeDatabase.LoadDatabase();
+
+        while (true)
+        {
+            Console.WriteLine("\nМЕНЮ УПРАВЛЕНИЯ БАЗОЙ ДАННЫХ КАФЕ");
+            Console.WriteLine("1. Просмотр всего меню");
+            Console.WriteLine("2. Добавить новое блюдо");
+            Console.WriteLine("3. Удалить блюдо по ID");
+            Console.WriteLine("4. Просмотр вегетарианских блюд");
+            Console.WriteLine("5. Просмотр блюд по категории");
+            Console.WriteLine("6. Просмотр блюд в ценовом диапазоне");
+            Console.WriteLine("7. Сохранить изменения");
+            Console.WriteLine("8. Выход");
+            Console.Write("Выберите действие: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int choice))
+            {
+                Console.WriteLine("Некорректный ввод. Пожалуйста, введите число от 1 до 8.");
+                continue;
+            }
+
+            try
+            {
+                switch (choice)
+                {
+                    case 1:
+                        CafeDatabase.ViewAllItems();
                         break;
-                    case "2":
-                        ДобавитьБлюдо(меню);
+                    case 2:
+                        AddNewMenuItem();
                         break;
-                    case "3":
-                        УдалитьБлюдо(меню);
+                    case 3:
+                        RemoveMenuItem();
                         break;
-                    case "4":
-                        меню.Сохранить();
+                    case 4:
+                        CafeDatabase.ViewVegetarianItems();
                         break;
-                    case "5":
-                        выход = true;
-                        меню.Сохранить();
-                        Console.WriteLine("До свидания!");
+                    case 5:
+                        ViewByCategory();
                         break;
+                    case 6:
+                        ViewByPriceRange();
+                        break;
+                    case 7:
+                        CafeDatabase.SaveDatabase();
+                        break;
+                    case 8:
+                        Console.WriteLine("Сохранить изменения перед выходом? (y/n)");
+                        if (Console.ReadLine().ToLower() == "y")
+                        {
+                            CafeDatabase.SaveDatabase();
+                        }
+                        return;
                     default:
-                        Console.WriteLine("Неверный выбор!");
+                        Console.WriteLine("Некорректный выбор. Пожалуйста, введите число от 1 до 8.");
                         break;
                 }
             }
-        }
-
-        static void ДобавитьБлюдо(Меню меню)
-        {
-            Console.WriteLine("\n=== ДОБАВЛЕНИЕ БЛЮДА ===");
-
-            int id = ВвестиЧисло("Введите ID: ");
-            string название = ВвестиСтроку("Введите название: ");
-            string категория = ВвестиСтроку("Введите категорию: ");
-            decimal цена = ВвестиДесятичное("Введите цену: ");
-            int калории = ВвестиЧисло("Введите калории: ");
-            bool вегетарианское = ВвестиДаНет("Вегетарианское (д/н)? ");
-
-            Блюдо новоеБлюдо = new Блюдо(id, название, категория, цена, калории, вегетарианское);
-            меню.Добавить(новоеБлюдо);
-        }
-
-        static void УдалитьБлюдо(Меню меню)
-        {
-            Console.Write("\nВведите ID блюда для удаления: ");
-            if (int.TryParse(Console.ReadLine(), out int id))
+            catch (Exception ex)
             {
-                меню.Удалить(id);
-            }
-            else
-            {
-                Console.WriteLine("Неверный формат ID.");
+                Console.WriteLine($"Произошла ошибка: {ex.Message}");
             }
         }
+    }
 
-        static int ВвестиЧисло(string подсказка)
-        {
-            while (true)
-            {
-                Console.Write(подсказка);
-                if (int.TryParse(Console.ReadLine(), out int число))
-                    return число;
-                Console.WriteLine("Ошибка! Введите целое число.");
-            }
-        }
+    static void AddNewMenuItem()
+    {
+        Console.WriteLine("\nДобавление нового блюда:");
 
-        static decimal ВвестиДесятичное(string подсказка)
-        {
-            while (true)
-            {
-                Console.Write(подсказка);
-                if (decimal.TryParse(Console.ReadLine(), out decimal число))
-                    return число;
-                Console.WriteLine("Ошибка! Введите число (например 125.50).");
-            }
-        }
+        Console.Write("ID: ");
+        int id = int.Parse(Console.ReadLine());
 
-        static string ВвестиСтроку(string подсказка)
-        {
-            Console.Write(подсказка);
-            return Console.ReadLine().Trim();
-        }
+        Console.Write("Название: ");
+        string name = Console.ReadLine();
 
-        static bool ВвестиДаНет(string подсказка)
-        {
-            while (true)
-            {
-                Console.Write(подсказка);
-                string input = Console.ReadLine().ToLower();
-                if (input == "д" || input == "да") return true;
-                if (input == "н" || input == "нет") return false;
-                Console.WriteLine("Введите 'д'/'да' или 'н'/'нет'");
-            }
-        }
+        Console.Write("Категория: ");
+        string category = Console.ReadLine();
+
+        Console.Write("Цена (руб.): ");
+        decimal price = decimal.Parse(Console.ReadLine());
+
+        Console.Write("Вес (г): ");
+        double weight = double.Parse(Console.ReadLine());
+
+        Console.Write("Вегетарианское (y/n): ");
+        bool isVegetarian = Console.ReadLine().ToLower() == "y";
+
+        Console.Write("Время приготовления (минуты): ");
+        double minutes = double.Parse(Console.ReadLine());
+        TimeSpan cookingTime = TimeSpan.FromMinutes(minutes);
+
+        Console.Write("Калорийность (ккал): ");
+        int calories = int.Parse(Console.ReadLine());
+
+        MenuItem newItem = new MenuItem(id, name, category, price, weight,
+                                       isVegetarian, cookingTime, calories);
+        CafeDatabase.AddItem(newItem);
+    }
+
+    static void RemoveMenuItem()
+    {
+        Console.Write("\nВведите ID блюда для удаления: ");
+        int id = int.Parse(Console.ReadLine());
+        CafeDatabase.RemoveItem(id);
+    }
+
+    static void ViewByCategory()
+    {
+        Console.Write("\nВведите категорию для поиска: ");
+        string category = Console.ReadLine();
+        CafeDatabase.ViewItemsByCategory(category);
+    }
+
+    static void ViewByPriceRange()
+    {
+        Console.Write("\nВведите минимальную цену: ");
+        decimal minPrice = decimal.Parse(Console.ReadLine());
+
+        Console.Write("Введите максимальную цену: ");
+        decimal maxPrice = decimal.Parse(Console.ReadLine());
+
+        CafeDatabase.ViewItemsInPriceRange(minPrice, maxPrice);
     }
 }
